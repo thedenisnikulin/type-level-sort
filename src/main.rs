@@ -1,152 +1,158 @@
-fn main() {
-    let a: Cons<Zero, Cons<Succ<Zero>, Nil>>;
-    // let b = a.swap();
-    // let c = a.rec();
+use std::marker::PhantomData;
 
-    // let d: Succ<Zero>;
-    // let e: Succ<Succ<Zero>>;
-    // let f = d.cmp(e);
+fn main() {
+    let _a: Bubble<
+        Cons<Succ<Zero>,
+            Cons<Zero,
+                Cons<Succ<Succ<Zero>>,
+                    Cons<Zero, Nil>
+                >
+            >
+        >
+    >;
 }
 
 
-
-// numbers
+// NATURAL NUMBERS DEF
 
 trait Nat {}
 
 struct Zero;
-struct Succ<T: Nat>(T);
+struct Succ<A: Nat>(PhantomData<A>);
 
 impl Nat for Zero {}
-impl<T: Nat> Nat for Succ<T> {}
+impl<A: Nat> Nat for Succ<A> {}
 
 
-// arrays
+// LIST DEF
 
-trait Arr {}
+trait List {}
 
 struct Nil;
-struct Cons<V: Nat, A: Arr>(V, A);
+struct Cons<V, C: List>(PhantomData<(V, C)>);
 
-impl Arr for Nil {}
-impl<V: Nat, A: Arr> Arr for Cons<V, A> {}
-
-
-
-// bubble
-
-trait ComputeBubble {
-    type Output;
-}
+impl List for Nil {}
+impl<V, C: List> List for Cons<V, C> {}
 
 
-impl<A, Other> ComputeBubble for Cons<A, Other>
-    where A: Nat + ComputeCompare<Other>,
-          Other: Arr + ComputeBubble + ComputeCompare<A>,
-          Other: ComputeSwap<Compare<Other, A>>,
-          <Other as ComputeBubble>::Output: ComputeSwap<<Other as ComputeCompare<A>>::Output>
-{
-    type Output = Swap<Compare<Other, A>, Bubble<Other>>;
-}
+// EQUALITY
 
-impl ComputeBubble for Nil { type Output = Self; }
-
-type Bubble<T> = <T as ComputeBubble>::Output;
-
-
-fn aboba() {
-    let t: <Cons<Zero, Cons<Succ<Zero>, Nil>> as ComputeBubble>::Output;
-    let b: <Cons<Zero,
-                Cons<Succ<Zero>,
-                    Cons<Succ<Succ<Zero>>,
-                        Cons<Succ<Zero>, Nil>>>> as ComputeBubble>::Output;
-}
-
-// 4<2<6<1<3<T>>>>>
-// [ 4, 2, 6, 1, 3 ]
-// first recursion: n - 1
-// second recursion: swap until end
-
-
-// concatenation
-
-
-
-
-// comparison
-
-trait ComputeCompare<Rhs> {
-    type Output: Equality;
-}
-
-// impl ComputeCompare<Zero> for Zero             { type Output = EQ; }
-// impl<A: Nat> ComputeCompare<Zero> for Succ<A>  { type Output = GT; }
-// impl<A: Nat> ComputeCompare<Succ<A>> for Zero  { type Output = LT; }
-// impl<A: Nat, B: Nat> ComputeCompare<Succ<B>> for Succ<A>
-//     where A: ComputeCompare<B>                 { type Output = <A as ComputeCompare<B>>::Output; }
-
-type Compare<Lhs, Rhs> = <Lhs as ComputeCompare<Rhs>>::Output;
+trait Equality {}
 
 struct EQ;
 struct LT;
 struct GT;
 
-trait Equality {}
 impl Equality for EQ {}
 impl Equality for LT {}
 impl Equality for GT {}
 
+// NAT COMPARISON
 
-// Nat and Arr comparison
-impl<Other: Arr>            ComputeCompare<Cons<Zero, Other>> for Zero { type Output = EQ; }
-impl<A: Nat, Other: Arr>    ComputeCompare<Cons<Succ<A>, Other>> for Zero { type Output = LT; }
-impl<A: Nat, Other: Arr>    ComputeCompare<Cons<Zero, Other>> for Succ<A> { type Output = GT; }
+trait ComputeCompareNat<Rhs> {
+    type Output: Equality;
+}
 
-impl<A, B, Other> ComputeCompare<Cons<Succ<B>, Other>> for Succ<A>
-    where A: Nat + ComputeCompare<B>,
-          B: Nat + ComputeCompare<A>,
-          Other: Arr
-{ type Output = <A as ComputeCompare<B>>::Output; }
+impl ComputeCompareNat<Zero> for Zero {
+    type Output = EQ;
+}
 
-impl<A> ComputeCompare<Nil> for A { type Output = LT; }
+impl<A: Nat> ComputeCompareNat<Succ<A>> for Zero {
+    type Output = LT;
+}
+
+impl<A: Nat> ComputeCompareNat<Zero> for Succ<A> {
+    type Output = GT;
+}
+
+impl<A, B> ComputeCompareNat<Succ<B>> for Succ<A>
+    where A: Nat + ComputeCompareNat<B>,
+          B: Nat + ComputeCompareNat<A>
+{
+    type Output = <A as ComputeCompareNat<B>>::Output;
+}
+
+type CompareNat<Lhs, Rhs> = <Lhs as ComputeCompareNat<Rhs>>::Output;
 
 
-// swap
+// NAT - NAT FROM LIST COMPARISON
 
-trait ComputeSwap<E: Equality> {
+trait ComputeCompare<Rhs> {
+    type Output: Equality;
+}
+
+impl<Num> ComputeCompare<Num> for Nil {
+    type Output = LT;
+}
+
+impl<Head, Num, Tail> ComputeCompare<Num> for Cons<Head, Tail>
+    where Head: Nat + ComputeCompareNat<Num>,
+          Num: Nat + ComputeCompareNat<Head>,
+          Tail: List
+{
+    type Output = CompareNat<Head, Num>;
+}
+
+type Compare<N, Ls> = <Ls as ComputeCompare<N>>::Output;
+
+
+// SWAP
+
+trait ComputeSwap<E: Equality, Head: Nat> {
     type Output;
 }
 
+impl<E: Equality, Head: Nat> ComputeSwap<E, Head> for Nil {
+    type Output = Cons<Head, Nil>;
+}
 
-impl<A: Nat, B: Nat, Other: Arr> ComputeSwap<EQ> for Cons<A, Cons<B, Other>> { type Output = Cons<A, Cons<B, Other>>; }
-impl<A: Nat, B: Nat, Other: Arr> ComputeSwap<GT> for Cons<A, Cons<B, Other>> { type Output = Cons<A, Cons<B, Other>>; }
-impl<A: Nat, B: Nat, Other: Arr> ComputeSwap<LT> for Cons<A, Cons<B, Other>> { type Output = Cons<B, Cons<A, Other>>; }
-impl<A: Nat, E: Equality> ComputeSwap<E> for Cons<A, Nil> { type Output = Self; }
+impl<A, Other, Head> ComputeSwap<EQ, Head> for Cons<A, Other>
+    where A: Nat,
+          Other: List,
+          Head: Nat
+{
+    type Output = Cons<Head, Cons<A, Other>>;
+}
 
-impl<E: Equality> ComputeSwap<E> for Nil { type Output = Nil; }
+impl<A, Other, Head> ComputeSwap<LT, Head> for Cons<A, Other>
+    where A: Nat,
+          Other: List,
+          Head: Nat
+{
+    type Output = Cons<Head, Cons<A, Other>>;
+}
 
-type Swap<E, T> = <T as ComputeSwap<E>>::Output;
+impl<A, Other, Head> ComputeSwap<GT, Head> for Cons<A, Other>
+    where A: Nat,
+          Other: List,
+          Head: Nat
+{
+    type Output = Cons<A, Cons<Head, Other>>;
+}
 
-// function bs(arr) {
-//     if (arr.length == 0) {
-//         return arr;
-//     }
-//
-//     console.log("arr: " + arr);
-//
-//     let head = arr.slice(0, 1);
-//     let tail = bs(arr.slice(1));
-//      swap(head, tail);
-//
-//     return head.concat(tail);
-// }
-//
-// function swap(prep, arr) {
-//     if (arr.length == 0) return;
-//     if (prep[0] <= arr[0]) {
-//         let temp = prep[0];
-//         prep[0] = arr[0];
-//         arr[0] = temp;
-//     }
-// }
-// // <head as Concat< <tail as Bubble>::Output >>::Output
+type Swap<Eq, Hd, Ls> = <Ls as ComputeSwap<Eq, Hd>>::Output;
+
+
+// BUBBLE
+
+trait ComputeBubble {
+    type Output;
+}
+
+impl ComputeBubble for Nil {
+    type Output = Self;
+}
+
+impl<Head, Tail> ComputeBubble for Cons<Head, Tail>
+    where Head: Nat,
+          Tail: List + ComputeBubble + ComputeCompare<Head>,
+          <Tail as ComputeBubble>::Output: ComputeSwap<<Tail as ComputeCompare<Head>>::Output, Head>
+{
+    type Output = Swap<Compare<Head, Tail>, Head, Bubble<Tail>>;
+}
+
+
+type Bubble<Ls> = <Ls as ComputeBubble>::Output;
+
+
+
