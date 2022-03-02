@@ -1,35 +1,19 @@
 use std::marker::PhantomData;
+use assert_type_eq::*;
 
 fn main() {
-    let _a: Sort<
-        Cons<Succ<Zero>,
-            Cons<Zero,
-                Cons<Succ<Succ<Zero>>,
-                    Cons<Zero, Nil>
-                >
-            >
-        >
-    >;
-
-    let _b: Sort<
-        Cons<Succ<Zero>,
-            Cons<Zero, Nil>
-        >
-    >;
-
-    let _c: Sort<
-        Cons<Succ<Succ<Zero>>,
-            Cons<Succ<Zero>,
-                Cons<Zero,
-                    Cons<Succ<Succ<Zero>>, Nil>
-                >
-            >
-        >
-    >;
+    assert_type_eq!(
+        BubbleSort<Cons<N3, Cons<N1, Cons<N2, Nil>>>>,
+        Cons<N1, Cons<N2, Cons<N3, Nil>>>);
 }
 
+type N0 = Zero;
+type N1 = Succ<N0>;
+type N2 = Succ<N1>;
+type N3 = Succ<N2>;
 
-// NATURAL NUMBERS DEF
+
+// NATURAL NUMBERS
 
 trait Nat {}
 
@@ -40,7 +24,7 @@ impl Nat for Zero {}
 impl<A: Nat> Nat for Succ<A> {}
 
 
-// LIST DEF
+// LIST
 
 trait List {}
 
@@ -62,6 +46,7 @@ struct GT;
 impl Equality for EQ {}
 impl Equality for LT {}
 impl Equality for GT {}
+
 
 // NAT COMPARISON
 
@@ -194,61 +179,50 @@ impl<Head, Tail> ComputeBubble for Cons<Head, Tail>
 type Bubble<Ls> = <Ls as ComputeBubble>::Output;
 
 
-// SORT
-
-trait ComputeSort {
-    type Output: List;
-}
-
-impl ComputeSort for Nil {
-    type Output = Nil;
-}
-
-// WTF that's not me that's rust analyzer's trait bounds suggestions
-impl<Head, Tail> ComputeSort for Cons<Head, Tail>
-    where Head: Nat,
-          Tail: List + ComputeBubble + ComputeCompare<Head> + ComputeConcat<Head> + ComputeSort,
-          <Tail as ComputeSort>::Output: ComputeConcat<Head>,
-          <Tail as ComputeBubble>::Output: ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>,
-          <<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output: ComputeHead,
-          <Tail as ComputeSort>::Output: ComputeConcat<<<<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output as ComputeHead>::Output>,
-          
-          <<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output: ComputeTail,
-          <<<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output as ComputeTail>::Output: ComputeSort,
-          <<<<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output as ComputeTail>::Output as ComputeSort>::Output: ComputeConcat<<<<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output as ComputeHead>::Output>
-{
-    type Output = Concat<HeadOf<Bubble<Cons<Head, Tail>>>, Sort<TailOf<Bubble<Cons<Head, Tail>>>>>;
-}
-
-type Sort<Ls> = <Ls as ComputeSort>::Output;
-
-
+// HELPER TYPES
 
 trait ComputeHead {
     type Output: Nat;
 }
 
-impl ComputeHead for Nil {
-    type Output = Zero; 
-}
-
-impl<Head: Nat, Tail: List> ComputeHead for Cons<Head, Tail> {
-    type Output = Head;
-}
+impl ComputeHead for Nil { type Output = Zero; }
+impl<Head: Nat, Tail: List> ComputeHead for Cons<Head, Tail> { type Output = Head; }
 
 type HeadOf<Ls> = <Ls as ComputeHead>::Output;
-
 
 trait ComputeTail {
     type Output: List;
 }
 
-impl ComputeTail for Nil {
+impl ComputeTail for Nil { type Output = Nil; }
+impl<Head: Nat, Tail: List> ComputeTail for Cons<Head, Tail> { type Output = Tail; }
+
+type TailOf<Ls> = <Ls as ComputeTail>::Output;
+
+
+// SORT
+
+trait ComputeBubbleSort {
+    type Bubbled: List;
+    type Output: List;
+}
+
+impl ComputeBubbleSort for Nil {
+    type Bubbled = Nil;
     type Output = Nil;
 }
 
-impl<Head: Nat, Tail: List> ComputeTail for Cons<Head, Tail> {
-    type Output = Tail;
+impl<Head, Tail> ComputeBubbleSort for Cons<Head, Tail>
+    where Head: Nat,
+          Tail: List + ComputeBubble + ComputeCompare<Head> + ComputeConcat<Head> + ComputeBubbleSort,
+          <Tail as ComputeBubble>::Output: ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>,
+          <<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output: ComputeHead,
+          <<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output: ComputeTail,
+          <<<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output as ComputeTail>::Output: ComputeBubbleSort,
+          <<<<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output as ComputeTail>::Output as ComputeBubbleSort>::Output: ComputeConcat<<<<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output as ComputeHead>::Output>
+{
+    type Bubbled = Bubble<Cons<Head, Tail>>;
+    type Output = Concat<HeadOf<Self::Bubbled>, BubbleSort<TailOf<Self::Bubbled>>>;
 }
 
-type TailOf<Ls> = <Ls as ComputeTail>::Output;
+type BubbleSort<Ls> = <Ls as ComputeBubbleSort>::Output;
