@@ -50,7 +50,7 @@ impl Equality for GT {}
 
 // NAT COMPARISON
 
-trait ComputeCompareNat<Rhs> {
+trait ComputeCompareNat<Rhs: Nat> {
     type Output: Equality;
 }
 
@@ -78,11 +78,11 @@ type CompareNat<Lhs, Rhs> = <Lhs as ComputeCompareNat<Rhs>>::Output;
 
 // NAT - NAT FROM LIST COMPARISON
 
-trait ComputeCompare<Rhs> {
+trait ComputeCompare<Rhs: Nat> {
     type Output: Equality;
 }
 
-impl<Num> ComputeCompare<Num> for Nil {
+impl<Num: Nat> ComputeCompare<Num> for Nil {
     type Output = LT;
 }
 
@@ -99,17 +99,17 @@ type Compare<N, Ls> = <Ls as ComputeCompare<N>>::Output;
 
 // CONCAT 
 
-trait ComputeConcat<A: Nat> {
+trait ComputePrepend<A: Nat> {
     type Output: List;
 }
 
-impl<A> ComputeConcat<A> for Nil
+impl<A> ComputePrepend<A> for Nil
     where A: Nat
 {
     type Output = Cons<A, Nil>;
 }
 
-impl<A, Head, Tail> ComputeConcat<A> for Cons<Head, Tail>
+impl<A, Head, Tail> ComputePrepend<A> for Cons<Head, Tail>
     where A: Nat,
           Head: Nat,
           Tail: List
@@ -117,20 +117,20 @@ impl<A, Head, Tail> ComputeConcat<A> for Cons<Head, Tail>
     type Output = Cons<A, Cons<Head, Tail>>;
 }
 
-type Concat<H, T> = <T as ComputeConcat<H>>::Output;
+type Prepend<H, T> = <T as ComputePrepend<H>>::Output;
 
 
 // SWAP
 
-trait ComputeSwapAndConcat<E: Equality, Head: Nat> {
+trait ComputeSwapPrepend<E: Equality, Head: Nat> {
     type Output: List;
 }
 
-impl<E: Equality, Head: Nat> ComputeSwapAndConcat<E, Head> for Nil {
+impl<E: Equality, Head: Nat> ComputeSwapPrepend<E, Head> for Nil {
     type Output = Cons<Head, Nil>;
 }
 
-impl<A, Other, Head> ComputeSwapAndConcat<EQ, Head> for Cons<A, Other>
+impl<A, Other, Head> ComputeSwapPrepend<EQ, Head> for Cons<A, Other>
     where A: Nat,
           Other: List,
           Head: Nat
@@ -138,7 +138,7 @@ impl<A, Other, Head> ComputeSwapAndConcat<EQ, Head> for Cons<A, Other>
     type Output = Cons<Head, Cons<A, Other>>;
 }
 
-impl<A, Other, Head> ComputeSwapAndConcat<LT, Head> for Cons<A, Other>
+impl<A, Other, Head> ComputeSwapPrepend<LT, Head> for Cons<A, Other>
     where A: Nat,
           Other: List,
           Head: Nat
@@ -146,7 +146,7 @@ impl<A, Other, Head> ComputeSwapAndConcat<LT, Head> for Cons<A, Other>
     type Output = Cons<Head, Cons<A, Other>>;
 }
 
-impl<A, Other, Head> ComputeSwapAndConcat<GT, Head> for Cons<A, Other>
+impl<A, Other, Head> ComputeSwapPrepend<GT, Head> for Cons<A, Other>
     where A: Nat,
           Other: List,
           Head: Nat
@@ -154,7 +154,7 @@ impl<A, Other, Head> ComputeSwapAndConcat<GT, Head> for Cons<A, Other>
     type Output = Cons<A, Cons<Head, Other>>;
 }
 
-type SwapAndConcat<Eq, Hd, Ls> = <Ls as ComputeSwapAndConcat<Eq, Hd>>::Output;
+type SwapPrepend<Eq, Hd, Ls> = <Ls as ComputeSwapPrepend<Eq, Hd>>::Output;
 
 
 // BUBBLE
@@ -170,16 +170,16 @@ impl ComputeBubble for Nil {
 impl<Head, Tail> ComputeBubble for Cons<Head, Tail>
     where Head: Nat,
           Tail: List + ComputeBubble + ComputeCompare<Head>,
-          <Tail as ComputeBubble>::Output: ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>
+          <Tail as ComputeBubble>::Output: ComputeSwapPrepend<<Tail as ComputeCompare<Head>>::Output, Head>
 {
-    type Output = SwapAndConcat<Compare<Head, Tail>, Head, Bubble<Tail>>;
+    type Output = SwapPrepend<Compare<Head, Tail>, Head, Bubble<Tail>>;
 }
 
 
 type Bubble<Ls> = <Ls as ComputeBubble>::Output;
 
 
-// HELPER TYPES
+// HELPER TRAITS
 
 trait ComputeHead {
     type Output: Nat;
@@ -214,15 +214,15 @@ impl ComputeBubbleSort for Nil {
 
 impl<Head, Tail> ComputeBubbleSort for Cons<Head, Tail>
     where Head: Nat,
-          Tail: List + ComputeBubble + ComputeCompare<Head> + ComputeConcat<Head> + ComputeBubbleSort,
-          <Tail as ComputeBubble>::Output: ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>,
-          <<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output: ComputeHead,
-          <<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output: ComputeTail,
-          <<<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output as ComputeTail>::Output: ComputeBubbleSort,
-          <<<<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output as ComputeTail>::Output as ComputeBubbleSort>::Output: ComputeConcat<<<<Tail as ComputeBubble>::Output as ComputeSwapAndConcat<<Tail as ComputeCompare<Head>>::Output, Head>>::Output as ComputeHead>::Output>
+          Tail: List + ComputeBubble + ComputeCompare<Head> + ComputePrepend<Head> + ComputeBubbleSort,
+          <Tail as ComputeBubble>::Output: ComputeSwapPrepend<<Tail as ComputeCompare<Head>>::Output, Head>,
+          <<Tail as ComputeBubble>::Output as ComputeSwapPrepend<<Tail as ComputeCompare<Head>>::Output, Head>>::Output: ComputeHead,
+          <<Tail as ComputeBubble>::Output as ComputeSwapPrepend<<Tail as ComputeCompare<Head>>::Output, Head>>::Output: ComputeTail,
+          <<<Tail as ComputeBubble>::Output as ComputeSwapPrepend<<Tail as ComputeCompare<Head>>::Output, Head>>::Output as ComputeTail>::Output: ComputeBubbleSort,
+          <<<<Tail as ComputeBubble>::Output as ComputeSwapPrepend<<Tail as ComputeCompare<Head>>::Output, Head>>::Output as ComputeTail>::Output as ComputeBubbleSort>::Output: ComputePrepend<<<<Tail as ComputeBubble>::Output as ComputeSwapPrepend<<Tail as ComputeCompare<Head>>::Output, Head>>::Output as ComputeHead>::Output>
 {
     type Bubbled = Bubble<Cons<Head, Tail>>;
-    type Output = Concat<HeadOf<Self::Bubbled>, BubbleSort<TailOf<Self::Bubbled>>>;
+    type Output = Prepend<HeadOf<Self::Bubbled>, BubbleSort<TailOf<Self::Bubbled>>>;
 }
 
 type BubbleSort<Ls> = <Ls as ComputeBubbleSort>::Output;
